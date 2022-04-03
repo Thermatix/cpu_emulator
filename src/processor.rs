@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use super::opcodes::OpCode;
 
 back_to_enum! {
-    enum Register {
+    enum NamedRegister {
         Carry = 0xF,
     }
 }
@@ -12,9 +12,17 @@ pub struct CPU {
     pub registers: [u8; 16],
     pub program_counter: usize,
     pub memory: [u8; 0x1000],
+    // pub stack: [u16; 16],
+    // pub stack_position: usize,
 }
 
 impl CPU {
+    pub fn raw_copy_to_mem(&mut self, loc: usize, data: &[u8]) {
+        data.chunks(2).fold(loc, |loc, bytes| {
+            self.raw_add_to_mem(loc, *bytes.first().unwrap(), *bytes.last().unwrap())
+        });
+    }
+
     pub fn add_to_mem(&mut self, loc: usize, oc: &OpCode) -> usize {
         self.memory[loc] = oc.high_byte(); self.memory[loc + 1] = oc.low_byte();
         loc + 2
@@ -63,9 +71,9 @@ impl CPU {
         println!("register: {}, {}", a, self.registers[*a as usize]);
         
         if overflow {
-            self.registers[Register::Carry as usize] = 1;
+            self.registers[NamedRegister::Carry as usize] = 1;
         } else {
-            self.registers[Register::Carry as usize] = 0;
+            self.registers[NamedRegister::Carry as usize] = 0;
         }
     }
 }

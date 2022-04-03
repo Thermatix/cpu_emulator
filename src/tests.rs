@@ -32,3 +32,16 @@ fn test_add_opcode() {
     assert_eq!(cpu.registers[0], 35);
 }
 
+#[test]
+fn test_function() {
+    let mut cpu = make_cpu();
+
+    let add_twice: [u8; 6] = [
+        0x80, 0x14,
+        0x80, 0x14,
+        0x00, 0xEE,
+    ];
+
+    cpu.raw_copy_to_mem(0 , &add_twice);
+
+}
