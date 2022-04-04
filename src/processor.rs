@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-use super::opcodes::OpCode;
+use super::opcodes::{BYTE, NIBBLE, OpCode};
 
 back_to_enum! {
     enum NamedRegister {
@@ -8,12 +8,13 @@ back_to_enum! {
 }
 
 
+#[derive(Debug)]
 pub struct CPU {
     pub registers: [u8; 16],
     pub program_counter: usize,
     pub memory: [u8; 0x1000],
-    // pub stack: [u16; 16],
-    // pub stack_position: usize,
+    pub stack: [u16; 16],
+    pub stack_pointer: usize,
 }
 
 impl CPU {
@@ -48,7 +49,7 @@ impl CPU {
     }
 
     pub fn run(&mut self) {
-       'exeuction: loop {
+       'execution: loop {
             let code = self.read_opcode();
             self.program_counter += 2;
             let opcode = 
@@ -60,7 +61,9 @@ impl CPU {
                 );
 
             match &opcode.into() {
-                (0, 0, 0, 0) => break 'exeuction,
+                (0, 0, 0, 0) => break 'execution,
+                (0, 0, 0xE, 0xE) => self.ret(),
+                (0x2, n1, n2, n3) => self.call(((*n1 as u16) << BYTE | (*n2 as u16) << NIBBLE) | *n3 as u16),
                 (0x8, a, b, 0x4) => self.add(a, b),
                 _ => todo!("opcode {:04x}", code),
             }
@@ -70,16 +73,35 @@ impl CPU {
     fn add(&mut self, a: &u8, b: &u8) {
         let arg1 = self.registers[*a as usize];
         let arg2 = self.registers[*b as usize];
-        println!("register: {}, {}", a, self.registers[*a as usize]);
 
         let (val, overflow) = arg1.overflowing_add(arg2);
         self.registers[*a as usize] = val;
-        println!("register: {}, {}", a, self.registers[*a as usize]);
         
         if overflow {
             self.registers[NamedRegister::Carry as usize] = 1;
         } else {
             self.registers[NamedRegister::Carry as usize] = 0;
         }
+    }
+
+    fn call(&mut self, addr: u16) {
+        if self.stack_pointer > self.stack.len() {
+            panic!("Stack Overflow!");
+        }
+
+        self.stack[self.stack_pointer] = self.program_counter as u16;
+        self.stack_pointer +=1;
+        self.program_counter = addr as usize;
+    }
+
+    fn ret(&mut self) {
+        if self.stack_pointer == 0 {
+            panic!("Stack Underflow!")
+        }
+
+        self.stack_pointer -= 1;
+        let call_addr = self.stack[self.stack_pointer];
+        self.program_counter = call_addr as usize;
+
     }
 }
