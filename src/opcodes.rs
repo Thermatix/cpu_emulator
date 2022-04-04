@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, Copy)]
 pub struct OpCode(u8, u8);
 
 impl OpCode {

@@ -4,7 +4,7 @@ fn make_cpu() -> processor::CPU {
 
    processor::CPU {
         registers: [0; 16],
-        memory: [0; 4096],
+        memory: [0; 0x1000],
         program_counter: 0,
     }
 }
@@ -33,7 +33,7 @@ fn test_add_opcode() {
 }
 
 #[test]
-fn test_function() {
+fn test_raw_memory_copy() {
     let mut cpu = make_cpu();
 
     let add_twice: [u8; 6] = [
@@ -42,6 +42,8 @@ fn test_function() {
         0x00, 0xEE,
     ];
 
-    cpu.raw_copy_to_mem(0 , &add_twice);
+    cpu.raw_copy_to_mem(0x100 , &add_twice);
+
+    assert_eq!(cpu.memory[0x100..0x106], add_twice);
 
 }

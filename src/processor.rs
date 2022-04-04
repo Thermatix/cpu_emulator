@@ -17,6 +17,12 @@ pub struct CPU {
 }
 
 impl CPU {
+    pub fn copy_to_mem(&mut self, loc: usize, data: &[OpCode]) {
+        data.iter().fold(loc, |loc, bytes| {
+            self.add_to_mem(loc, bytes)
+        });
+    }
+
     pub fn raw_copy_to_mem(&mut self, loc: usize, data: &[u8]) {
         data.chunks(2).fold(loc, |loc, bytes| {
             self.raw_add_to_mem(loc, *bytes.first().unwrap(), *bytes.last().unwrap())
