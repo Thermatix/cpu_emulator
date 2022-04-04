@@ -102,6 +102,5 @@ impl CPU {
         self.stack_pointer -= 1;
         let call_addr = self.stack[self.stack_pointer];
         self.program_counter = call_addr as usize;
-
     }
 }
