@@ -17,6 +17,8 @@ pub struct CPU {
     pub stack_pointer: usize,
 }
 
+type DecodedOpcode = (u8, u8, u8, u8);
+
 impl CPU {
     pub fn copy_to_mem(&mut self, loc: usize, data: &[OpCode]) {
         data.iter().fold(loc, |loc, bytes| {
@@ -48,40 +50,111 @@ impl CPU {
         op_byte1 << 8 | op_byte2
     }
 
+    fn decode(&mut self, code: u16) -> DecodedOpcode {
+        (
+            ((code & 0xF000 ) >> 12 ) as u8, // c
+            ((code & 0x0F00 ) >>  8 ) as u8, // x
+            ((code & 0x00F0 ) >>  4 ) as u8, // y
+            ((code & 0x000F ) >>  0 ) as u8, // d
+        )
+    }
+
     pub fn run(&mut self) {
        'execution: loop {
             let code = self.read_opcode();
+            let opcode = self.decode(code);
             self.program_counter += 2;
-            let opcode = 
-                (
-                    ((code & 0xF000 ) >> 12 ) as u8, // c
-                    ((code & 0x0F00 ) >>  8 ) as u8, // x
-                    ((code & 0x00F0 ) >>  4 ) as u8, // y
-                    ((code & 0x000F ) >>  0 ) as u8, // d
-                );
 
             match &opcode.into() {
                 (0, 0, 0, 0) => break 'execution,
                 (0, 0, 0xE, 0xE) => self.ret(),
                 (0x2, n1, n2, n3) => self.call(((*n1 as u16) << BYTE | (*n2 as u16) << NIBBLE) | *n3 as u16),
-                (0x8, a, b, 0x4) => self.add(a, b),
+                (0x8, x, y, 0x0) => self.set_xy(x, y),
+                (0x8, x, y, 0x1) => self.or_xy(x, y),
+                (0x8, x, y, 0x2) => self.and_xy(x, y),
+                (0x8, x, y, 0x3) => self.xor_xy(x, y),
+                (0x8, x, y, 0x4) => self.add_xy(x, y),
+                (0x8, x, y, 0x5) => self.sub_xy(x, y),
+                (0x8, x, y, 0x6) => self.shift_right(x, y),
+                (0x8, x, y, 0x7) => self.sub_yx(x, y),
+                (0x8, x, y, 0xE) => self.shift_left(x, y),
                 _ => todo!("opcode {:04x}", code),
             }
         }
     }
 
-    fn add(&mut self, a: &u8, b: &u8) {
-        let arg1 = self.registers[*a as usize];
-        let arg2 = self.registers[*b as usize];
+    fn set_xy(&mut self, x: &u8, y: &u8) {
+        self.registers[*x as usize] = self.registers[*y as usize];
+    }
+
+    // I'm not sure if this is correct or not...
+    fn or_xy(&mut self, x: &u8, y: &u8) {
+        self.registers[*x as usize] = self.registers[*x as usize] | self.registers[*y as usize];
+    }
+
+    // I'm not sure if this is correct or not...
+    fn and_xy(&mut self, x: &u8, y: &u8) {
+        self.registers[*x as usize] = self.registers[*x as usize] & self.registers[*y as usize];
+    }
+
+    // I'm not sure if this is correct or not...
+    fn xor_xy(&mut self, x: &u8, y: &u8) {
+        self.registers[*x as usize] = self.registers[*x as usize] ^ self.registers[*y as usize];
+    }
+
+    fn add_xy(&mut self, x: &u8, y: &u8) {
+        let arg1 = self.registers[*x as usize];
+        let arg2 = self.registers[*y as usize];
 
         let (val, overflow) = arg1.overflowing_add(arg2);
-        self.registers[*a as usize] = val;
+        self.registers[*x as usize] = val;
         
         if overflow {
             self.registers[NamedRegister::Carry as usize] = 1;
         } else {
             self.registers[NamedRegister::Carry as usize] = 0;
         }
+    }
+
+    fn  sub_xy(&mut self, x: &u8, y: &u8) {
+        let arg1 = self.registers[*x as usize];
+        let arg2 = self.registers[*y as usize];
+
+        let (val, overflow) = arg1.overflowing_sub(arg2);
+        self.registers[*x as usize] = val;
+        
+        if overflow {
+            self.registers[NamedRegister::Carry as usize] = 1;
+        } else {
+            self.registers[NamedRegister::Carry as usize] = 0;
+        }
+    }
+
+    // I'm not sure if this is correct or not...
+    fn  shift_right(&mut self, x: &u8, _y: &u8) {
+            self.registers[NamedRegister::Carry as usize] = x.to_be() & 0x000F;
+            self.registers[*x as usize] = self.registers[*x as usize] >> 1;
+    }
+
+    fn  sub_yx(&mut self, x: &u8, y: &u8) {
+        let arg1 = self.registers[*x as usize];
+        let arg2 = self.registers[*y as usize];
+
+        let (val, overflow) = arg2.overflowing_sub(arg1);
+        self.registers[*x as usize] = val;
+
+        if overflow {
+            self.registers[NamedRegister::Carry as usize] = 1;
+        } else {
+            self.registers[NamedRegister::Carry as usize] = 0;
+        }
+    }
+
+    // I'm not sure if this is correct or not...
+    fn  shift_left(&mut self, x: &u8, _y: &u8) {
+            self.registers[NamedRegister::Carry as usize] = x.to_be()
+                                                             .reverse_bits() & 0x000F;
+            self.registers[*x as usize] = self.registers[*x as usize] << 1;
     }
 
     fn call(&mut self, addr: u16) {

@@ -114,7 +114,7 @@ impl OpCode {
     }
 
     // Stores the least significant bit of VX in VF and then shifts VX to the right by 1
-    pub fn lsb_x_y(x: u8, y: u8) -> Self {
+    pub fn shift_right(x: u8, y: u8) -> Self {
         Self (0x8 << NIBBLE | x, (y << NIBBLE) | 0x6)
     }
 
@@ -124,7 +124,7 @@ impl OpCode {
     }
 
     // Stores the most significant bit of VX in VF and then shifts VX to the left by 1
-    pub fn msb_x_y(x: u8, y: u8) -> Self {
+    pub fn shift_left(x: u8, y: u8) -> Self {
         Self (0x8 << NIBBLE | x, (y << NIBBLE) | 0xE)
     }
     // Skips the next instruction if VX does not equal VY
