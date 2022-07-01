@@ -66,9 +66,17 @@ impl CPU {
             self.program_counter += 2;
 
             match &opcode.into() {
-                (0, 0, 0, 0) => break 'execution,
-                (0, 0, 0xE, 0xE) => self.ret(),
+                (0x0, 0x0, 0x0, 0x0) => break 'execution, // halt
+                (0x0, n1, n2, n3) => unimplemented!(), // call routine
+                (0x0,0x0, 0x0, 0xE) => unimplemented!(), // clear
+                (0x0, 0x0, 0xE, 0xE) => self.ret(), // return
+                (0x1, n1, n2, n3) => unimplemented!(), // goto
                 (0x2, n1, n2, n3) => self.call(((*n1 as u16) << BYTE | (*n2 as u16) << NIBBLE) | *n3 as u16),
+                (0x3, x, n2, n3) => unimplemented!(), // skip if X equals NN
+                (0x4, x, n2, n3) => unimplemented!(), // skip if X not equals NN
+                (0x5, x, y, 0x0) => unimplemented!(), // skip if X equals Y
+                (0x6, x, n2, n3) => unimplemented!(), // set x to NN
+                (0x7, x, n2, n3) => unimplemented!(), // et x to NN
                 (0x8, x, y, 0x0) => self.set_xy(x, y),
                 (0x8, x, y, 0x1) => self.or_xy(x, y),
                 (0x8, x, y, 0x2) => self.and_xy(x, y),
@@ -78,6 +86,21 @@ impl CPU {
                 (0x8, x, y, 0x6) => self.shift_right(x, y),
                 (0x8, x, y, 0x7) => self.sub_yx(x, y),
                 (0x8, x, y, 0xE) => self.shift_left(x, y),
+                (0x9, x, y, 0x0) => unimplemented!(), // skip if x not equal to y
+                (0xA, n1, n2, n3) => unimplemented!(),
+                (0xB, n1, n2, n3) => unimplemented!(),
+                (0xC, n1, n2, n3) => unimplemented!(),
+                (0xD, n1, n2, n3) => unimplemented!(),
+                (0xE, x, 0x9, 0xE) => unimplemented!(),
+                (0xF, x, 0x0, 0x7) => unimplemented!(),
+                (0xF, x, 0x0, 0xA) => unimplemented!(),
+                (0xF, x, 0x1, 0x5) => unimplemented!(),
+                (0xF, x, 0x1, 0x8) => unimplemented!(),
+                (0xF, x, 0x1, 0xE) => unimplemented!(),
+                (0xF, x, 0x2, 0x9) => unimplemented!(),
+                (0xF, x, 0x3, 0x3) => unimplemented!(),
+                (0xF, x, 0x5, 0x5) => unimplemented!(),
+                (0xF, x, 0x6, 0x5) => unimplemented!(),
                 _ => todo!("opcode {:04x}", code),
             }
         }
