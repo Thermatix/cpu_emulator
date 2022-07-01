@@ -139,7 +139,7 @@ impl OpCode {
 
     // Jumps to the address NNN plus V0
     pub fn jump_to_nnn_plus_v0(n1: u8, n2: u8, n3: u8) -> Self {
-        Self (0xA << NIBBLE | n1, n2 << NIBBLE | n3)
+        Self (0xB << NIBBLE | n1, n2 << NIBBLE | n3)
     }
 
     // Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255) and NN
