@@ -88,6 +88,36 @@ fn test_memory_vs_raw() {
 }
 
 #[test]
+fn test_shift_right() {
+    let mut cpu = make_cpu();
+
+    cpu.registers[0] = 255;
+    cpu.registers[1] = 0;
+
+    cpu.add_to_mem(0, &OpCode::shift_right(0x0, 0x1));
+
+    cpu.run();
+
+    assert_eq!(cpu.registers[0], 127);
+    assert_eq!(cpu.registers[1], 1);
+}
+
+#[test]
+fn test_shift_left() {
+    let mut cpu = make_cpu();
+
+    cpu.registers[0] = 5;
+    cpu.registers[1] = 0;
+
+    cpu.add_to_mem(0, &OpCode::shift_left(0x0, 0x1));
+
+    cpu.run();
+
+    assert_eq!(cpu.registers[0], 10);
+    assert_eq!(cpu.registers[1], 1);
+}
+
+#[test]
 fn test_call_and_return() {
     let mut cpu = make_cpu();
     

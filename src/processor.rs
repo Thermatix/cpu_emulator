@@ -67,7 +67,6 @@ impl CPU {
 
             match &opcode.into() {
                 (0x0, 0x0, 0x0, 0x0) => break 'execution, // halt
-                (0x0, n1, n2, n3) => unimplemented!(), // call routine
                 (0x0,0x0, 0x0, 0xE) => unimplemented!(), // clear
                 (0x0, 0x0, 0xE, 0xE) => self.ret(), // return
                 (0x1, n1, n2, n3) => unimplemented!(), // goto
@@ -77,6 +76,7 @@ impl CPU {
                 (0x5, x, y, 0x0) => unimplemented!(), // skip if X equals Y
                 (0x6, x, n2, n3) => unimplemented!(), // set x to NN
                 (0x7, x, n2, n3) => unimplemented!(), // et x to NN
+                (0x0, n1, n2, n3) => unimplemented!(), // call routine
                 (0x8, x, y, 0x0) => self.set_xy(x, y),
                 (0x8, x, y, 0x1) => self.or_xy(x, y),
                 (0x8, x, y, 0x2) => self.and_xy(x, y),
@@ -153,9 +153,8 @@ impl CPU {
         }
     }
 
-    // I'm not sure if this is correct or not...
-    fn  shift_right(&mut self, x: &u8, _y: &u8) {
-            self.registers[NamedRegister::Carry as usize] = x.to_be() & 0x000F;
+    fn  shift_right(&mut self, x: &u8, y: &u8) {
+            self.registers[*y as usize] = (self.registers[*x as usize] >> 7) & 1;
             self.registers[*x as usize] = self.registers[*x as usize] >> 1;
     }
 
@@ -173,10 +172,8 @@ impl CPU {
         }
     }
 
-    // I'm not sure if this is correct or not...
-    fn  shift_left(&mut self, x: &u8, _y: &u8) {
-            self.registers[NamedRegister::Carry as usize] = x.to_be()
-                                                             .reverse_bits() & 0x000F;
+    fn  shift_left(&mut self, x: &u8, y: &u8) {
+            self.registers[*y as usize] = self.registers[*x as usize] & 1;
             self.registers[*x as usize] = self.registers[*x as usize] << 1;
     }
 
