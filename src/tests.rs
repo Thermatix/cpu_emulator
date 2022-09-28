@@ -166,8 +166,34 @@ fn test_call_and_return() {
     cpu.copy_to_mem(loc1, &call_function);
     cpu.copy_to_mem(loc2, &add_twice);
 
-
     cpu.run();
 
     assert_eq!(cpu.registers[0], 45);
+}
+
+#[test]
+fn test_skip_if_x_eql_nn() {
+    let mut cpu = make_cpu();
+
+    cpu.registers[0] = 5;
+
+    let loc1: usize = 0x000;
+    let skip_test: [OpCode; 3] = [
+        OpCode::skip_x_eq_nn(0x0, 0x0, 0x5),
+        OpCode::call(0x1,0x0,0x0),
+        OpCode::halt(),
+    ];
+let loc2: usize = 0x100;
+    let add_twice: [OpCode; 2] = [
+        OpCode::add(0x0, 0x1),
+        OpCode::add(0x0, 0x1),
+    ];
+
+    cpu.copy_to_mem(loc1, &skip_test);
+    cpu.copy_to_mem(loc2, &add_twice);
+
+    cpu.run();
+
+    let opcode_length = 2;
+    assert_eq!(cpu.program_counter, loc1 + (opcode_length * 3));
 }

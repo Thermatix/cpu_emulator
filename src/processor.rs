@@ -71,11 +71,11 @@ impl CPU {
                 (0x0, 0x0, 0xE, 0xE) => self.ret(), // return
                 (0x1, n1, n2, n3) => self.goto(((*n1 as u16) << BYTE | (*n2 as u16) << NIBBLE) | *n3 as u16), // goto
                 (0x2, n1, n2, n3) => self.call(((*n1 as u16) << BYTE | (*n2 as u16) << NIBBLE) | *n3 as u16),
-                (0x3, x, n2, n3) => unimplemented!(), // skip if X equals NN
-                (0x4, x, n2, n3) => unimplemented!(), // skip if X not equals NN
-                (0x5, x, y, 0x0) => unimplemented!(), // skip if X equals Y
-                (0x6, x, n2, n3) => unimplemented!(), // set x to NN
-                (0x7, x, n2, n3) => unimplemented!(), // et x to NN
+                (0x3, x, n2, n3)  => self.skip_x_eq_nn(&x, &n2, &n3), // skip if X equals NN
+                (0x4, x, n2, n3)  => unimplemented!(), // skip if X not equals NN
+                (0x5, x, y, 0x0)  => unimplemented!(), // skip if X equals Y
+                (0x6, x, n2, n3)  => unimplemented!(), // set x to NN
+                (0x7, x, n2, n3)  => unimplemented!(), // et x to NN
                 (0x0, n1, n2, n3) => unimplemented!(), // call routine
                 (0x8, x, y, 0x0) => self.set_xy(x, y),
                 (0x8, x, y, 0x1) => self.or_xy(x, y),
@@ -179,6 +179,12 @@ impl CPU {
 
     fn goto(&mut self, addr: u16) {
         self.program_counter = addr as usize;
+    }
+
+    fn skip_x_eq_nn(&mut self, x: &u8, n2: &u8, n3: &u8) {
+        if self.registers[*x as usize] == ((n2 << NIBBLE) | n3) {
+            self.program_counter += 2;
+        }
     }
 
     fn call(&mut self, addr: u16) {
