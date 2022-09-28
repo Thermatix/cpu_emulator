@@ -69,7 +69,7 @@ impl CPU {
                 (0x0, 0x0, 0x0, 0x0) => break 'execution, // halt
                 (0x0,0x0, 0x0, 0xE) => unimplemented!(), // clear
                 (0x0, 0x0, 0xE, 0xE) => self.ret(), // return
-                (0x1, n1, n2, n3) => unimplemented!(), // goto
+                (0x1, n1, n2, n3) => self.goto(((*n1 as u16) << BYTE | (*n2 as u16) << NIBBLE) | *n3 as u16), // goto
                 (0x2, n1, n2, n3) => self.call(((*n1 as u16) << BYTE | (*n2 as u16) << NIBBLE) | *n3 as u16),
                 (0x3, x, n2, n3) => unimplemented!(), // skip if X equals NN
                 (0x4, x, n2, n3) => unimplemented!(), // skip if X not equals NN
@@ -175,6 +175,10 @@ impl CPU {
     fn  shift_left(&mut self, x: &u8, y: &u8) {
             self.registers[*y as usize] = self.registers[*x as usize] & 1;
             self.registers[*x as usize] = self.registers[*x as usize] << 1;
+    }
+
+    fn goto(&mut self, addr: u16) {
+        self.program_counter = addr as usize;
     }
 
     fn call(&mut self, addr: u16) {

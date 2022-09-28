@@ -118,6 +118,30 @@ fn test_shift_left() {
 }
 
 #[test]
+fn test_goto() {
+    let mut cpu = make_cpu();
+    
+    cpu.registers[0] = 5;
+    cpu.registers[1] = 10;
+
+    let loc1: usize = 0x000;
+    let goto: [OpCode; 1] = [
+        OpCode::goto(0x1,0x0,0x0),
+    ];
+
+    let loc2: usize = 0x100;
+    
+    cpu.copy_to_mem(loc1, &goto);
+
+    let stack_counter = cpu.stack_pointer;
+    cpu.run();
+    let opcode_length = 2;
+    assert_eq!(cpu.program_counter, loc2 + opcode_length);
+    assert_eq!(stack_counter, cpu.stack_pointer);
+}
+
+
+#[test]
 fn test_call_and_return() {
     let mut cpu = make_cpu();
     
