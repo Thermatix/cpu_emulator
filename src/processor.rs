@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-use super::opcodes::{BYTE, NIBBLE, OpCode};
+use super::opcodes::{BYTE, NIBBLE, OPCODELENGTH, OpCode};
 
 back_to_enum! {
     enum NamedRegister {
@@ -71,22 +71,22 @@ impl CPU {
                 (0x0, 0x0, 0xE, 0xE) => self.ret(), // return
                 (0x1, n1, n2, n3) => self.goto(((*n1 as u16) << BYTE | (*n2 as u16) << NIBBLE) | *n3 as u16), // goto
                 (0x2, n1, n2, n3) => self.call(((*n1 as u16) << BYTE | (*n2 as u16) << NIBBLE) | *n3 as u16),
-                (0x3, x, n2, n3)  => self.skip_x_eq_nn(&x, &n2, &n3), // skip if X equals NN
-                (0x4, x, n2, n3)  => unimplemented!(), // skip if X not equals NN
-                (0x5, x, y, 0x0)  => unimplemented!(), // skip if X equals Y
-                (0x6, x, n2, n3)  => unimplemented!(), // set x to NN
-                (0x7, x, n2, n3)  => unimplemented!(), // et x to NN
                 (0x0, n1, n2, n3) => unimplemented!(), // call routine
-                (0x8, x, y, 0x0) => self.set_xy(x, y),
-                (0x8, x, y, 0x1) => self.or_xy(x, y),
-                (0x8, x, y, 0x2) => self.and_xy(x, y),
-                (0x8, x, y, 0x3) => self.xor_xy(x, y),
-                (0x8, x, y, 0x4) => self.add_xy(x, y),
-                (0x8, x, y, 0x5) => self.sub_xy(x, y),
-                (0x8, x, y, 0x6) => self.shift_right(x, y),
-                (0x8, x, y, 0x7) => self.sub_yx(x, y),
-                (0x8, x, y, 0xE) => self.shift_left(x, y),
-                (0x9, x, y, 0x0) => unimplemented!(), // skip if x not equal to y
+                (0x3, x, n2, n3)  => self.skip_x_eq_nn(&(*x as usize), &n2, &n3), // skip if X equals NN
+                (0x4, x, n2, n3)  => self.skip_x_neq_nn(&(*x as usize), &n2, &n3), // skip if X not equals NN
+                (0x5, x, y, 0x0)  => self.skip_x_eq_y(&(*x as usize), &(*y as usize)), // skip if X equals Y
+                (0x6, x, n2, n3)  => self.set_x_to_nn(&(*x as usize), &n2, &n3), // set x to NN
+                (0x7, x, n2, n3)  => self.add_nn_to_x(&(*x as usize), &n2, &n3), // add NN to x
+                (0x8, x, y, 0x0) => self.set_xy(&(*x as usize), &(*y as usize)),
+                (0x8, x, y, 0x1) => self.or_xy(&(*x as usize), &(*y as usize)),
+                (0x8, x, y, 0x2) => self.and_xy(&(*x as usize), &(*y as usize)),
+                (0x8, x, y, 0x3) => self.xor_xy(&(*x as usize), &(*y as usize)),
+                (0x8, x, y, 0x4) => self.add_xy(&(*x as usize), &(*y as usize)),
+                (0x8, x, y, 0x5) => self.sub_xy(&(*x as usize), &(*y as usize)),
+                (0x8, x, y, 0x6) => self.shift_right(&(*x as usize), &(*y as usize)),
+                (0x8, x, y, 0x7) => self.sub_yx(&(*x as usize), &(*y as usize)),
+                (0x8, x, y, 0xE) => self.shift_left(&(*x as usize), &(*y as usize)),
+                (0x9, x, y, 0x0) => self.skip_x_neq_y(&(*x as usize), &(*y as usize)), // skip if x not equal to y
                 (0xA, n1, n2, n3) => unimplemented!(),
                 (0xB, n1, n2, n3) => unimplemented!(),
                 (0xC, n1, n2, n3) => unimplemented!(),
@@ -106,28 +106,28 @@ impl CPU {
         }
     }
 
-    fn set_xy(&mut self, x: &u8, y: &u8) {
-        self.registers[*x as usize] = self.registers[*y as usize];
+    fn set_xy(&mut self, x: &usize, y: &usize) {
+        self.registers[*x] = self.registers[*y];
     }
 
     // I'm not sure if this is correct or not...
-    fn or_xy(&mut self, x: &u8, y: &u8) {
-        self.registers[*x as usize] = self.registers[*x as usize] | self.registers[*y as usize];
+    fn or_xy(&mut self, x: &usize, y: &usize) {
+        self.registers[*x] = self.registers[*x as usize] | self.registers[*y];
+    }
+
+    // I'm not sure if this is corret or not...
+    fn and_xy(&mut self, x: &usize, y: &usize) {
+        self.registers[*x] = self.registers[*x as usize] & self.registers[*y];
     }
 
     // I'm not sure if this is correct or not...
-    fn and_xy(&mut self, x: &u8, y: &u8) {
-        self.registers[*x as usize] = self.registers[*x as usize] & self.registers[*y as usize];
+    fn xor_xy(&mut self, x: &usize, y: &usize) {
+        self.registers[*x] = self.registers[*x as usize] ^ self.registers[*y];
     }
 
-    // I'm not sure if this is correct or not...
-    fn xor_xy(&mut self, x: &u8, y: &u8) {
-        self.registers[*x as usize] = self.registers[*x as usize] ^ self.registers[*y as usize];
-    }
-
-    fn add_xy(&mut self, x: &u8, y: &u8) {
-        let arg1 = self.registers[*x as usize];
-        let arg2 = self.registers[*y as usize];
+    fn add_xy(&mut self, x: &usize, y: &usize) {
+        let arg1 = self.registers[*x];
+        let arg2 = self.registers[*y];
 
         let (val, overflow) = arg1.overflowing_add(arg2);
         self.registers[*x as usize] = val;
@@ -139,9 +139,9 @@ impl CPU {
         }
     }
 
-    fn  sub_xy(&mut self, x: &u8, y: &u8) {
-        let arg1 = self.registers[*x as usize];
-        let arg2 = self.registers[*y as usize];
+    fn  sub_xy(&mut self, x: &usize, y: &usize) {
+        let arg1 = self.registers[*x];
+        let arg2 = self.registers[*y];
 
         let (val, overflow) = arg1.overflowing_sub(arg2);
         self.registers[*x as usize] = val;
@@ -153,14 +153,14 @@ impl CPU {
         }
     }
 
-    fn  shift_right(&mut self, x: &u8, y: &u8) {
-            self.registers[*y as usize] = (self.registers[*x as usize] >> 7) & 1;
-            self.registers[*x as usize] = self.registers[*x as usize] >> 1;
+    fn  shift_right(&mut self, x: &usize, y: &usize) {
+            self.registers[*y] = (self.registers[*x as usize] >> 7) & 1;
+            self.registers[*x] = self.registers[*x as usize] >> 1;
     }
 
-    fn  sub_yx(&mut self, x: &u8, y: &u8) {
-        let arg1 = self.registers[*x as usize];
-        let arg2 = self.registers[*y as usize];
+    fn  sub_yx(&mut self, x: &usize, y: &usize) {
+        let arg1 = self.registers[*x];
+        let arg2 = self.registers[*y];
 
         let (val, overflow) = arg2.overflowing_sub(arg1);
         self.registers[*x as usize] = val;
@@ -172,18 +172,44 @@ impl CPU {
         }
     }
 
-    fn  shift_left(&mut self, x: &u8, y: &u8) {
-            self.registers[*y as usize] = self.registers[*x as usize] & 1;
-            self.registers[*x as usize] = self.registers[*x as usize] << 1;
+    fn  shift_left(&mut self, x: &usize, y: &usize) {
+            self.registers[*y] = self.registers[*x] & 1;
+            self.registers[*x] = self.registers[*x] << 1;
     }
 
     fn goto(&mut self, addr: u16) {
         self.program_counter = addr as usize;
     }
 
-    fn skip_x_eq_nn(&mut self, x: &u8, n2: &u8, n3: &u8) {
-        if self.registers[*x as usize] == ((n2 << NIBBLE) | n3) {
-            self.program_counter += 2;
+    fn skip_x_eq_nn(&mut self, x: &usize, n2: &u8, n3: &u8) {
+        if self.registers[*x] == ((n2 << NIBBLE) | n3) {
+            self.program_counter += OPCODELENGTH;
+        }
+    }
+
+    fn skip_x_neq_nn(&mut self, x: &usize, n2: &u8, n3: &u8) {
+        if self.registers[*x] != ((n2 << NIBBLE) | n3) {
+            self.program_counter += OPCODELENGTH;
+        }
+    }
+
+    fn skip_x_eq_y(&mut self, x: &usize, y: &usize) {
+        if self.registers[*x] == self.registers[*y] {
+            self.program_counter += OPCODELENGTH;
+        }
+    }
+
+    fn set_x_to_nn(&mut self, x: &usize, n2: &u8, n3: &u8) {
+        self.registers[*x] = (n2 << NIBBLE) | n3;
+    }
+
+    fn add_nn_to_x(&mut self, x: &usize, n2: &u8, n3: &u8) {
+        self.registers[*x] = self.registers[*x] + ((n2 << NIBBLE) | n3);
+    }
+
+    fn skip_x_neq_y(&mut self, x: &usize, y: &usize) {
+        if self.registers[*x] != self.registers[*y] {
+            self.program_counter += OPCODELENGTH;
         }
     }
 

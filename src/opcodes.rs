@@ -3,6 +3,7 @@ pub struct OpCode(u8, u8);
 
 pub const NIBBLE: u8 = 4;
 pub const BYTE: u8 = 8;
+pub const OPCODELENGTH: usize = 2;
 
 impl OpCode {
     pub fn high_byte(&self) -> u8 {
@@ -79,7 +80,7 @@ impl OpCode {
     }
 
     // Adds NN to VX
-    pub fn add_x_to_nn(x: u8, n2: u8, n3: u8) -> Self {
+    pub fn add_nn_to_x(x: u8, n2: u8, n3: u8) -> Self {
         Self (0x7 << NIBBLE | x, n2 << NIBBLE | n3)
     }
 

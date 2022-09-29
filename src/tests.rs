@@ -183,7 +183,8 @@ fn test_skip_if_x_eql_nn() {
         OpCode::call(0x1,0x0,0x0),
         OpCode::halt(),
     ];
-let loc2: usize = 0x100;
+
+    let loc2: usize = 0x100;
     let add_twice: [OpCode; 2] = [
         OpCode::add(0x0, 0x1),
         OpCode::add(0x0, 0x1),
@@ -196,4 +197,116 @@ let loc2: usize = 0x100;
 
     let opcode_length = 2;
     assert_eq!(cpu.program_counter, loc1 + (opcode_length * 3));
+}
+
+#[test]
+fn test_skip_if_x_ne_eql_nn() {
+    let mut cpu = make_cpu();
+
+    cpu.registers[0] = 5;
+
+    let loc1: usize = 0x000;
+    let skip_test: [OpCode; 3] = [
+        OpCode::skip_x_neq_nn(0x0, 0x0, 0x6),
+        OpCode::call(0x1,0x0,0x0),
+        OpCode::halt(),
+    ];
+
+    let loc2: usize = 0x100;
+    let add_twice: [OpCode; 2] = [
+        OpCode::add(0x0, 0x1),
+        OpCode::add(0x0, 0x1),
+    ];
+
+    cpu.copy_to_mem(loc1, &skip_test);
+    cpu.copy_to_mem(loc2, &add_twice);
+
+    cpu.run();
+
+    let opcode_length = 2;
+    assert_eq!(cpu.program_counter, loc1 + (opcode_length * 3));
+}
+
+#[test]
+fn test_skip_if_x_e_eql_y() {
+    let mut cpu = make_cpu();
+
+    cpu.registers[0] = 5;
+    cpu.registers[1] = 5;
+
+    let loc1: usize = 0x000;
+    let skip_test: [OpCode; 3] = [
+        OpCode::skip_x_eq_y(0x0, 0x1),
+        OpCode::call(0x1,0x0,0x0),
+        OpCode::halt(),
+    ];
+
+    let loc2: usize = 0x100;
+    let add_twice: [OpCode; 2] = [
+        OpCode::add(0x0, 0x1),
+        OpCode::add(0x0, 0x1),
+    ];
+
+    cpu.copy_to_mem(loc1, &skip_test);
+    cpu.copy_to_mem(loc2, &add_twice);
+
+    cpu.run();
+
+    let opcode_length = 2;
+    assert_eq!(cpu.program_counter, loc1 + (opcode_length * 3));
+}
+
+#[test]
+fn test_skip_if_x_e_neql_y() {
+    let mut cpu = make_cpu();
+
+    cpu.registers[0] = 5;
+    cpu.registers[1] = 6;
+
+    let loc1: usize = 0x000;
+    let skip_test: [OpCode; 3] = [
+        OpCode::skip_x_neq_y(0x0, 0x1),
+        OpCode::call(0x1,0x0,0x0),
+        OpCode::halt(),
+    ];
+
+    let loc2: usize = 0x100;
+    let add_twice: [OpCode; 2] = [
+        OpCode::add(0x0, 0x1),
+        OpCode::add(0x0, 0x1),
+    ];
+
+    cpu.copy_to_mem(loc1, &skip_test);
+    cpu.copy_to_mem(loc2, &add_twice);
+
+    cpu.run();
+
+    let opcode_length = 2;
+    assert_eq!(cpu.program_counter, loc1 + (opcode_length * 3));
+}
+
+#[test]
+fn test_set_x_to_nn() {
+    let mut cpu = make_cpu();
+
+    cpu.registers[0] = 5;
+
+    cpu.add_to_mem(0, &OpCode::set_x_to_nn(0x0, 0x0, 0x1A));
+
+    cpu.run();
+
+    assert_eq!(cpu.registers[0], 26);
+}
+
+#[test]
+fn test_add_nn_to_x() {
+    let mut cpu = make_cpu();
+
+    cpu.registers[0] = 5;
+
+    cpu.add_to_mem(0, &OpCode::add_nn_to_x(0x0, 0x0, 0x6));
+
+    cpu.run();
+
+    assert_eq!(cpu.registers[0], 11);
 }
