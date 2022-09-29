@@ -1,13 +1,14 @@
-use crate::{processor, opcodes::{OpCode, NIBBLE, BYTE}};
+use crate::{processor, address::Address, opcodes::{OpCode, NIBBLE, BYTE}};
 
 fn make_cpu() -> processor::CPU {
 
    processor::CPU {
         registers: [0; 16],
         memory: [0; 0x1000],
-        program_counter: 0,
-        stack: [0; 16],
+        program_counter: (0 as u16).into(),
+        stack: [Address (0, 0, 0); 16],
         stack_pointer: 0,
+        i: 0,
     }
 }
 

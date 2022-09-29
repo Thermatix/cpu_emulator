@@ -1,24 +1,60 @@
-use std::convert::TryFrom;
+use std::convert::{From, TryFrom};
 use super::opcodes::{BYTE, NIBBLE, OPCODELENGTH, OpCode};
+use super::address::Address;
 
 back_to_enum! {
     enum NamedRegister {
-        Carry = 0xF,
+        Flag = 0xF,
     }
 }
-
 
 #[derive(Debug)]
 pub struct CPU {
     pub registers: [u8; 16],
-    pub program_counter: usize,
+    pub program_counter: Address,
+    pub i: u16,
     pub memory: [u8; 0x1000],
-    pub stack: [u16; 16],
+    pub stack: [Address; 16],
     pub stack_pointer: usize,
 }
 
 type DecodedOpcode = (u8, u8, u8, u8);
 
+#[derive(Debug, Clone, Copy)]
+pub struct ByteConstant (u8, u8);
+
+impl From<(&u8, &u8)> for ByteConstant {
+
+    fn from(nibbles: (&u8, &u8)) -> Self {
+        Self (nibbles.0.clone(), nibbles.1.clone())
+    }
+
+}
+
+impl From<ByteConstant> for u8 {
+
+    fn from(constant: ByteConstant) -> Self {
+        constant.0 << NIBBLE | constant.1
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct NibbleConstant (u8);
+
+impl From<&u8> for NibbleConstant {
+
+    fn from(nibble: &u8) -> Self {
+        Self (nibble.clone())
+    }
+
+}
+
+impl From<NibbleConstant> for u8 {
+
+    fn from(constant: NibbleConstant) -> Self {
+        constant.0
+    }
+}
 impl CPU {
     pub fn copy_to_mem(&mut self, loc: usize, data: &[OpCode]) {
         data.iter().fold(loc, |loc, bytes| {
@@ -43,7 +79,7 @@ impl CPU {
     }
     
     fn read_opcode(&self) -> u16 {
-        let pc = self.program_counter;
+        let pc: usize = self.program_counter.into();
         let op_byte1 = self.memory[pc] as u16;
         let op_byte2 = self.memory[pc + 1] as u16;
 
@@ -63,20 +99,20 @@ impl CPU {
        'execution: loop {
             let code = self.read_opcode();
             let opcode = self.decode(code);
-            self.program_counter += 2;
+            self.program_counter += OPCODELENGTH;
 
             match &opcode.into() {
                 (0x0, 0x0, 0x0, 0x0) => break 'execution, // halt
                 (0x0,0x0, 0x0, 0xE) => unimplemented!(), // clear
                 (0x0, 0x0, 0xE, 0xE) => self.ret(), // return
-                (0x1, n1, n2, n3) => self.goto(((*n1 as u16) << BYTE | (*n2 as u16) << NIBBLE) | *n3 as u16), // goto
-                (0x2, n1, n2, n3) => self.call(((*n1 as u16) << BYTE | (*n2 as u16) << NIBBLE) | *n3 as u16),
-                (0x0, n1, n2, n3) => unimplemented!(), // call routine
-                (0x3, x, n2, n3)  => self.skip_x_eq_nn(&(*x as usize), &n2, &n3), // skip if X equals NN
-                (0x4, x, n2, n3)  => self.skip_x_neq_nn(&(*x as usize), &n2, &n3), // skip if X not equals NN
+                (0x1, n1, n2, n3) => self.goto((n1, n2, n3).into()), // goto
+                (0x2, n1, n2, n3) => self.call((n1, n2, n3).into()),
+                (0x0, n1, n2, n3) => self.call((n1, n2, n3).into()), // call routine
+                (0x3, x, n2, n3)  => self.skip_x_eq_nn (&(*x as usize), (n2, n3).into()), // skip if X equals NN
+                (0x4, x, n2, n3)  => self.skip_x_neq_nn(&(*x as usize), (n2, n3).into()), // skip if X not equals NN
                 (0x5, x, y, 0x0)  => self.skip_x_eq_y(&(*x as usize), &(*y as usize)), // skip if X equals Y
-                (0x6, x, n2, n3)  => self.set_x_to_nn(&(*x as usize), &n2, &n3), // set x to NN
-                (0x7, x, n2, n3)  => self.add_nn_to_x(&(*x as usize), &n2, &n3), // add NN to x
+                (0x6, x, n2, n3)  => self.set_x_to_nn(&(*x as usize), (n2, n3).into()), // set x to NN
+                (0x7, x, n2, n3)  => self.add_nn_to_x(&(*x as usize), (n2, n3).into()), // add NN to x
                 (0x8, x, y, 0x0) => self.set_xy(&(*x as usize), &(*y as usize)),
                 (0x8, x, y, 0x1) => self.or_xy(&(*x as usize), &(*y as usize)),
                 (0x8, x, y, 0x2) => self.and_xy(&(*x as usize), &(*y as usize)),
@@ -87,7 +123,7 @@ impl CPU {
                 (0x8, x, y, 0x7) => self.sub_yx(&(*x as usize), &(*y as usize)),
                 (0x8, x, y, 0xE) => self.shift_left(&(*x as usize), &(*y as usize)),
                 (0x9, x, y, 0x0) => self.skip_x_neq_y(&(*x as usize), &(*y as usize)), // skip if x not equal to y
-                (0xA, n1, n2, n3) => unimplemented!(),
+                (0xA, n1, n2, n3) => self.set_i_to_nnn((n1, n2, n3).into()),
                 (0xB, n1, n2, n3) => unimplemented!(),
                 (0xC, n1, n2, n3) => unimplemented!(),
                 (0xD, n1, n2, n3) => unimplemented!(),
@@ -133,9 +169,9 @@ impl CPU {
         self.registers[*x as usize] = val;
         
         if overflow {
-            self.registers[NamedRegister::Carry as usize] = 1;
+            self.registers[NamedRegister::Flag as usize] = 1;
         } else {
-            self.registers[NamedRegister::Carry as usize] = 0;
+            self.registers[NamedRegister::Flag as usize] = 0;
         }
     }
 
@@ -147,14 +183,14 @@ impl CPU {
         self.registers[*x as usize] = val;
         
         if overflow {
-            self.registers[NamedRegister::Carry as usize] = 1;
+            self.registers[NamedRegister::Flag as usize] = 1;
         } else {
-            self.registers[NamedRegister::Carry as usize] = 0;
+            self.registers[NamedRegister::Flag as usize] = 0;
         }
     }
 
-    fn  shift_right(&mut self, x: &usize, y: &usize) {
-            self.registers[*y] = (self.registers[*x as usize] >> 7) & 1;
+    fn  shift_right(&mut self, x: &usize, _y: &usize) {
+            self.registers[NamedRegister::Flag as usize] = (self.registers[*x as usize] >> 7) & 1;
             self.registers[*x] = self.registers[*x as usize] >> 1;
     }
 
@@ -166,29 +202,29 @@ impl CPU {
         self.registers[*x as usize] = val;
 
         if overflow {
-            self.registers[NamedRegister::Carry as usize] = 1;
+            self.registers[NamedRegister::Flag as usize] = 1;
         } else {
-            self.registers[NamedRegister::Carry as usize] = 0;
+            self.registers[NamedRegister::Flag as usize] = 0;
         }
     }
 
-    fn  shift_left(&mut self, x: &usize, y: &usize) {
-            self.registers[*y] = self.registers[*x] & 1;
+    fn  shift_left(&mut self, x: &usize, _y: &usize) {
+            self.registers[NamedRegister::Flag as usize] = self.registers[*x] & 1;
             self.registers[*x] = self.registers[*x] << 1;
     }
 
-    fn goto(&mut self, addr: u16) {
-        self.program_counter = addr as usize;
+    fn goto(&mut self, addr: Address) {
+        self.program_counter = addr.into();
     }
 
-    fn skip_x_eq_nn(&mut self, x: &usize, n2: &u8, n3: &u8) {
-        if self.registers[*x] == ((n2 << NIBBLE) | n3) {
+    fn skip_x_eq_nn(&mut self, x: &usize, nn: ByteConstant) {
+        if self.registers[*x] == nn.into() {
             self.program_counter += OPCODELENGTH;
         }
     }
 
-    fn skip_x_neq_nn(&mut self, x: &usize, n2: &u8, n3: &u8) {
-        if self.registers[*x] != ((n2 << NIBBLE) | n3) {
+    fn skip_x_neq_nn(&mut self, x: &usize, nn: ByteConstant) {
+        if self.registers[*x] != nn.into() {
             self.program_counter += OPCODELENGTH;
         }
     }
@@ -199,12 +235,13 @@ impl CPU {
         }
     }
 
-    fn set_x_to_nn(&mut self, x: &usize, n2: &u8, n3: &u8) {
-        self.registers[*x] = (n2 << NIBBLE) | n3;
+    fn set_x_to_nn(&mut self, x: &usize, nn: ByteConstant) {
+        self.registers[*x] = nn.into();
     }
 
-    fn add_nn_to_x(&mut self, x: &usize, n2: &u8, n3: &u8) {
-        self.registers[*x] = self.registers[*x] + ((n2 << NIBBLE) | n3);
+    fn add_nn_to_x(&mut self, x: &usize, nn: ByteConstant) {
+        let nn: u8 = nn.into();
+        self.registers[*x] = self.registers[*x] + nn;
     }
 
     fn skip_x_neq_y(&mut self, x: &usize, y: &usize) {
@@ -213,14 +250,18 @@ impl CPU {
         }
     }
 
-    fn call(&mut self, addr: u16) {
+    fn set_i_to_nnn(&mut self, addr: Address) {
+        self.i = addr.into()
+    }
+
+    fn call(&mut self, addr: Address) {
         if self.stack_pointer > self.stack.len() {
             panic!("Stack Overflow!");
         }
 
-        self.stack[self.stack_pointer] = self.program_counter as u16;
-        self.stack_pointer +=1;
-        self.program_counter = addr as usize;
+        self.stack[self.stack_pointer] = self.program_counter.into();
+        self.stack_pointer += 1;
+        self.program_counter = addr.into();
     }
 
     fn ret(&mut self) {
@@ -230,6 +271,6 @@ impl CPU {
 
         self.stack_pointer -= 1;
         let call_addr = self.stack[self.stack_pointer];
-        self.program_counter = call_addr as usize;
+        self.program_counter = call_addr.into();
     }
 }
